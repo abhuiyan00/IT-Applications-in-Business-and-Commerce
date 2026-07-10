@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IT Apps Knowledge Test</title>
+    <meta name="description" content="Self-study multiple-choice quiz for IT Applications in Business and Commerce — immediate feedback, explanations, and mistake review.">
+    <meta name="theme-color" content="#4f46e5" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#0b1220" media="(prefers-color-scheme: dark)">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%234f46e5'/%3E%3Ctext x='50' y='71' font-size='62' font-family='Arial,sans-serif' font-weight='bold' fill='white' text-anchor='middle'%3E%3F%3C/text%3E%3C/svg%3E">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Apply a saved light/dark choice before first paint to avoid a theme flash. -->
+    <script>
+        try {
+            var s = JSON.parse(localStorage.getItem('itAppsQuizState') || '{}');
+            if (s && (s.theme === 'light' || s.theme === 'dark'))
+                document.documentElement.setAttribute('data-theme', s.theme);
+        } catch (e) {}
+    </script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">
+                <h2>IT Apps</h2>
+                <span class="subtitle" id="appSubtitle">Knowledge Test</span>
+            </div>
+
+            <div class="overall-stats">
+                <div class="stat">
+                    <span class="stat-value" id="overallAnswered">0</span>
+                    <span class="stat-label">Answered</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-value" id="overallAccuracy">—</span>
+                    <span class="stat-label">Accuracy</span>
+                </div>
+            </div>
+
+            <nav class="sets-nav" id="setsNav">
+                <!-- Sets injected here -->
+            </nav>
+
+            <div class="sidebar-footer">
+                <button id="themeBtn" class="theme-btn" type="button" aria-label="Theme: auto. Click to change." title="Theme: auto — click to change">🌗 Auto</button>
+                <label class="toggle">
+                    <input type="checkbox" id="shuffleToggle">
+                    <span>Shuffle questions</span>
+                </label>
+                <button id="resetSetBtn" class="btn-reset secondary">Reset this set</button>
+                <button id="resetBtn" class="btn-reset">Reset all progress</button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- View tabs: Quiz · Learn · Search -->
+            <nav class="view-tabs" role="tablist" aria-label="Mode">
+                <button class="view-tab active" id="tabQuiz" data-view="quiz" role="tab" aria-selected="true" aria-controls="quizView">📝 Quiz</button>
+                <button class="view-tab" id="tabLearn" data-view="learn" role="tab" aria-selected="false" aria-controls="learnView" tabindex="-1">📖 Learn</button>
+                <button class="view-tab" id="tabSearch" data-view="search" role="tab" aria-selected="false" aria-controls="searchView" tabindex="-1">🔍 Search</button>
+                <button class="view-tab" id="tabMistakes" data-view="mistakes" role="tab" aria-selected="false" aria-controls="mistakesView" tabindex="-1">🩹 Mistakes</button>
+            </nav>
+
+            <header class="top-bar" id="quizTopBar">
+                <div class="progress-info">
+                    <span id="progressText">Question 1 of 25</span>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                </div>
+                <div class="score-info">
+                    <span class="score-label">Set score:</span>
+                    <span id="scoreText" class="score-value">0 / 0</span>
+                </div>
+            </header>
+
+          <!-- ============ QUIZ VIEW ============ -->
+          <div id="quizView" class="view active" role="tabpanel" aria-labelledby="tabQuiz">
+            <!-- Study timer — Nielsen Norman: keep system status visible, give the
+                 user control (pause), use elapsed count-up (not a pressuring countdown). -->
+            <div class="timer-bar" role="group" aria-label="Study timer">
+                <div class="timer-stat">
+                    <span class="timer-label">This question</span>
+                    <span class="timer-value" id="questionTimer" aria-hidden="true">00:00</span>
+                </div>
+                <div class="timer-stat">
+                    <span class="timer-label">Total elapsed</span>
+                    <span class="timer-value" id="totalTimer" aria-hidden="true">00:00</span>
+                </div>
+                <button id="pauseBtn" class="timer-pause" type="button" aria-pressed="false" title="Pause the study timer (P)">⏸ Pause</button>
+            </div>
+
+            <section class="quiz-area" id="quizArea">
+                <!-- Question Card -->
+                <div class="question-card" id="questionCard" aria-live="polite">
+                    <div class="question-meta">
+                        <span class="q-tag" id="setTag">Set</span>
+                        <span class="q-index" id="qIndex">Q1</span>
+                    </div>
+                    <h3 class="question-text" id="questionText">Loading question...</h3>
+                    <div class="options-container" id="optionsContainer">
+                        <!-- Options injected here -->
+                    </div>
+                </div>
+
+                <!-- Reasoning Panel -->
+                <div class="reasoning-panel" id="reasoningPanel" aria-live="polite">
+                    <div class="reasoning-header">
+                        <span class="icon">💡</span>
+                        <h4>Explanation</h4>
+                    </div>
+                    <p id="reasoningText"></p>
+                </div>
+
+                <!-- Navigation -->
+                <div class="nav-buttons" id="navButtons">
+                    <button id="prevBtn" class="btn btn-secondary" disabled>← Previous</button>
+                    <span class="kbd-hint">Keys: <kbd>1</kbd>–<kbd>4</kbd> answer · <kbd>←</kbd> <kbd>→</kbd> move · <kbd>Enter</kbd> next · <kbd>P</kbd> pause</span>
+                    <button id="nextBtn" class="btn btn-primary" disabled>Next →</button>
+                </div>
+
+                <!-- End-of-set Summary -->
+                <div class="summary-card" id="summaryCard" hidden>
+                    <h3 id="summaryTitle">Set complete</h3>
+                    <div class="summary-score">
+                        <div class="ring" id="summaryRing">
+                            <span id="summaryPercent">0%</span>
+                        </div>
+                        <p id="summaryDetail">You got 0 of 25 correct.</p>
+                    </div>
+                    <div class="summary-actions">
+                        <button id="retryWrongBtn" class="btn btn-primary">Retry incorrect</button>
+                        <button id="reviewBtn" class="btn btn-secondary">Review answers</button>
+                        <button id="nextSetBtn" class="btn btn-secondary">Next set →</button>
+                    </div>
+                </div>
+            </section>
+          </div><!-- /quizView -->
+
+          <!-- ============ LEARN VIEW ============ -->
+          <div id="learnView" class="view" hidden role="tabpanel" aria-labelledby="tabLearn">
+            <div class="learn-toolbar">
+                <label for="learnSetSelect" class="learn-label">Topic</label>
+                <select id="learnSetSelect" class="learn-select"></select>
+                <label class="toggle learn-reveal">
+                    <input type="checkbox" id="learnRevealToggle" checked>
+                    <span>Show answers</span>
+                </label>
+            </div>
+            <p class="learn-hint">Flashcard mode: uncheck <strong>Show answers</strong>, then tap a card (or press <kbd>Enter</kbd>) to flip it and reveal the answer.</p>
+            <div id="learnList" class="learn-list"><!-- cards injected --></div>
+          </div><!-- /learnView -->
+
+          <!-- ============ SEARCH VIEW ============ -->
+          <div id="searchView" class="view" hidden role="tabpanel" aria-labelledby="tabSearch">
+            <div class="search-toolbar">
+                <input type="search" id="searchInput" class="search-input"
+                       placeholder="Search questions, answers, topics…" autocomplete="off">
+                <span id="searchCount" class="search-count"></span>
+            </div>
+            <div id="searchResults" class="learn-list"><!-- results injected --></div>
+          </div><!-- /searchView -->
+
+          <!-- ============ MISTAKES VIEW ============ -->
+          <div id="mistakesView" class="view" hidden role="tabpanel" aria-labelledby="tabMistakes">
+            <div class="search-toolbar">
+                <span class="learn-label">Questions you answered wrong — revisit, learn, and fix them.</span>
+                <span id="mistakesCount" class="search-count"></span>
+            </div>
+            <div id="mistakesList" class="learn-list"><!-- mistakes injected --></div>
+          </div><!-- /mistakesView -->
+        </main>
+    </div>
+
+    <script src="chapters.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
