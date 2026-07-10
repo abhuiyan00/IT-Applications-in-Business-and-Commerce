@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Virtual environments
+RACERvenv/
+venv/
+.venv/
+env/
+
+# Vendored TORCS simulator — a third-party prerequisite, not committed here
+# (see project/code/README.md for how to obtain it)
+torcs/
+**/vtorcs-RL-color/
+**/torcs/
+
+# Bulky / regenerable training artifacts
+**/logs/telemetry_*.csv
+**/checkpoints copy*/
+*.rar
+
+# Node (exam_prep QA tooling)
+node_modules/
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp

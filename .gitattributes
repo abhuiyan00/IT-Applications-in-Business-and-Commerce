@@ -1,0 +1,25 @@
+# Normalise line endings on checkin; let Git pick native on checkout.
+* text=auto
+
+# Explicit text
+*.py     text
+*.js     text
+*.md     text
+*.txt    text
+*.html   text
+*.css    text
+*.xml    text
+*.csv    text
+*.sh     text eol=lf
+
+# Binary — never diff or normalise
+*.pt     binary
+*.npz    binary
+*.npy    binary
+*.png    binary
+*.jpg    binary
+*.gif    binary
+*.pdf    binary
+*.pptx   binary
+*.docx   binary
+*.rar    binary
