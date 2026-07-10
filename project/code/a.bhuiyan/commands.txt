@@ -1,0 +1,4 @@
+To start race:
+1. run wtorcs.exe
+2. run:  python train_torcs_rl.py --updates 1500 --max-steps 100000 --rollout-size 4096 --load-path checkpoints/torcs_ppo_latest.pt --save-path checkpoints/torcs_ppo_latest.pt
+If weigths don't exist, remove load and save paths

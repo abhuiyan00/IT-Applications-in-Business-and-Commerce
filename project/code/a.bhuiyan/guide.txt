@@ -1,0 +1,359 @@
+===============================================================================
+ RACING-LINE HYBRID PPO — IMPLEMENTATION GUIDE
+ Convergence Acceleration Pipeline, adapted to the racer_pytorch codebase
+===============================================================================
+
+Audience: whoever works on the "pre-computed racing line + PPO physics handler"
+architecture in this repo. Read CLAUDE.md first for the project map; this file
+is the design rationale + math behind the implementation.
+
+-------------------------------------------------------------------------------
+ STATUS: IMPLEMENTED (focus track = corkscrew)
+-------------------------------------------------------------------------------
+The pipeline below is now live in the codebase:
+  gym_torcs/racing_line.py     Phases 1 (XML parse, centerline, relaxation,
+                               speed profile) + the runtime RacingLine loader.
+  gym_torcs/lines/corkscrew.npz Generated artifact (length 3650 m, 12 m wide).
+  gym_torcs/gym_torcs.py       Phase 3 reward (_racingline_reward), Phase 4
+                               throttle + auto-gear + steer constraints
+                               (_apply_steer_constraints). Loads the line via
+                               the new racing_line_path arg.
+  gym_torcs/rl_agent.py        Phase 2 state (flatten_racingline_observation,
+                               33-dim) + build_state selector.
+  gym_torcs/train_torcs_rl.py  --racing-line (default corkscrew.npz), throttle
+  gym_torcs/eval_torcs_rl.py   auto-enabled, build_state wired in.
+  torcs/config/raceman/practice.xml  track set to corkscrew.
+Regenerate the line:  python racing_line.py
+Train:                python train_torcs_rl.py --port 3001
+The sections below document WHY each piece is built the way it is; one
+correction to the original plan (tTrackSeg) is in section 0.
+
+
+-------------------------------------------------------------------------------
+0. TL;DR  (and the one correction to the original plan)
+-------------------------------------------------------------------------------
+The original 5-phase plan is sound, with ONE structural correction:
+
+  * The plan says "run the relaxation along the tTrackSeg coordinates."
+    `tTrackSeg` is a TORCS C++ runtime structure. It is ONLY visible to a
+    robot compiled inside TORCS. Our agent talks to TORCS over the SCR
+    UDP protocol (snakeoil3_gym.py) and CANNOT see tTrackSeg.
+
+  * Fix: get the identical geometry OFFLINE by parsing the track XML
+    (torcs/tracks/road/<track>/<track>.xml). It encodes the track as an
+    ordered list of segments: straights (lg) and arcs (radius, arc, lft/rgt).
+    Integrate those to rebuild the centerline, then relax. Same math, a
+    source we can actually reach from Python.
+
+  * At RUNTIME we localize on the precomputed line using sensors that ARE
+    available over UDP: distFromStart (arc-length s), trackPos (lateral),
+    angle (heading vs track tangent), speedX.
+
+Everything else in the plan (state = tracking errors, dense reward, action
+clipping, PPO) maps directly onto the current files.
+
+Configured track today: alpine-1 (see torcs/config/raceman/practice.xml),
+road category, width 12.0 m, surface gasphalt4. Generate the line for THAT
+track. If the track is changed in the TORCS GUI, regenerate.
+
+
+-------------------------------------------------------------------------------
+1. What exists today (baseline)
+-------------------------------------------------------------------------------
+gym_torcs/gym_torcs.py        TorcsEnv: gym-like wrapper. Currently
+                              throttle=False -> agent controls STEER ONLY.
+                              Auto-throttle pins speed at default_speed=50 km/h.
+                              gear is HARDCODED to 1 (line ~230).
+                              Reward = progress/20 - trackPos penalties
+                              - angle penalties + improvement bonuses
+                              - steer penalties - damage/off-track.
+                              Termination: off-track (track.min()<0),
+                              low-progress, backward (cos(angle)<0).
+
+gym_torcs/rl_agent.py         PPO. ActorCritic MLP (Tanh, 256x2), tanh-squashed
+                              Gaussian policy, GAE, clip, target-KL early stop.
+                              State builder = flatten_low_dim_observation():
+                                [ speedX(1), track[19], angle/pi(1),
+                                  trackPos(1), prevAppliedSteer(1) ] = 23 dims.
+                              Action dim comes from env.action_space (1 = steer).
+
+gym_torcs/train_torcs_rl.py   PPO training loop, rollout 1024, checkpoints
+                              latest / best_train / best_eval.
+gym_torcs/eval_torcs_rl.py    Deterministic evaluation.
+gym_torcs/snakeoil3_gym.py    SCR UDP client. Sensor + actuator transport.
+
+Data flow per step:
+  agent.act(state) -> action(np)
+  env.step(action) -> agent_to_torcs() -> client.R.d (steer/accel/brake/gear)
+  client.respond_to_server() -> client.get_servers_input()
+  raw obs = client.S.d (dict)  -> make_observaton() (namedtuple, normalized)
+  reward computed in step()    -> returns (obs, reward, done, info)
+  trainer rebuilds flat state via flatten_low_dim_observation(obs, client.S.d)
+
+
+-------------------------------------------------------------------------------
+2. Sensor / actuator reality over SCR-UDP  (what you can and cannot use)
+-------------------------------------------------------------------------------
+AVAILABLE every step in client.S.d (see snakeoil3_gym.py):
+  angle          heading of car vs track centerline tangent (radians)
+  trackPos       lateral position, normalized: 0 = center, +/-1 ~ track edge
+  distFromStart  arc-length along track from start line (meters), wraps each lap
+  distRaced      cumulative distance (meters), monotonic
+  speedX/Y/Z     body-frame speeds (km/h)  <-- NOTE units: km/h
+  track[19]      rangefinder beams to track edge, angles
+                 -45 -19 -12 -7 -4 -2.5 -1.7 -1 -.5 0 .5 1 1.7 2.5 4 7 12 19 45
+  rpm, gear, wheelSpinVel[4], damage, fuel, z, opponents[36], focus
+
+SETTABLE in client.R.d:
+  steer [-1,1], accel [0,1], brake [0,1], gear {-1..6}, clutch, focus, meta
+
+NOT available over UDP (do NOT design around these):
+  tTrackSeg / tTrackSegArray, absolute world x/y of the car, the centerline
+  coordinate array, per-segment radius at runtime, the global track spline.
+
+Consequence: localization is done in the (s, lateral) track frame, NOT in
+world xy. distFromStart gives s; trackPos gives lateral; angle gives heading
+error vs the centerline tangent. The precomputed line must therefore be stored
+as functions of s: offset(s), heading_rl(s)-heading_center(s), kappa(s),
+vmax(s).
+
+
+-------------------------------------------------------------------------------
+3. PHASE 1 — Pre-compute the racing line (offline, run once per track)
+-------------------------------------------------------------------------------
+New file: gym_torcs/racing_line.py   (generator + loader; pure numpy)
+
+3.1 Parse the track XML
+    Input: torcs/tracks/road/alpine-1/alpine-1.xml
+    Read Main Track "width" (12.0 m for alpine-1) and the ordered children of
+    section "Track Segments". For each segment section:
+      type = str | lft | rgt
+      str  -> length lg (m)
+      lft/rgt -> radius (m), arc (deg); lft = left turn, rgt = right turn
+    Ignore pit-only sections; keep main Track Segments in file order.
+    (Tip: stdlib xml.etree.ElementTree. attrs are <attstr>/<attnum name= val=>.)
+
+3.2 Integrate the centerline (track-local frame; absolute orientation is moot)
+    State (x, y, psi) starting at (0, 0, 0). Sample step ds_geo ~ 1 m.
+      straight (len L):
+        repeat steps of ds along psi:  x += ds*cos(psi); y += ds*sin(psi)
+        curvature kappa = 0
+      arc (radius R, arc A deg, sign = +1 if lft else -1):
+        dtheta = (A in rad)/steps
+        per step:
+          psi_mid = psi + sign*dtheta/2
+          x += R*dtheta*cos(psi_mid);  y += R*dtheta*sin(psi_mid)
+          psi += sign*dtheta
+        curvature kappa = sign / R  (constant over the arc)
+    Accumulate s (arc-length). Resample to uniform spacing ds ~ 1-3 m to get
+    nodes C_i = (x_i, y_i), tangent heading psi_i, curvature kappa_i, s_i.
+    Track total length L = final s.
+
+    VALIDATION (do this before trusting anything): the track is a closed loop,
+    so the integrated path must return near its start. Assert
+    |C_last - C_first| < a few meters and psi wraps by ~+/-2*pi. If it does
+    not close, the arc signs or the parser are wrong — fix here first.
+
+3.3 Iterative smoothing / relaxation (the "minimize curvature within corridor")
+    Represent the line as centerline + signed lateral offset n_i along the LEFT
+    normal of the centerline:  normal_i = (-sin psi_i, cos psi_i)
+      P_i = C_i + n_i * normal_i
+    Corridor limit: n_max = width/2 - margin  (e.g. 12/2 - 1.0 = 5.0 m).
+    Loop 500-1000 times (PERIODIC boundary, indices mod N for the closed loop):
+      Laplacian smoothing toward neighbor midpoint:
+        target = 0.5*(P[i-1] + P[i+1])
+        P[i] += relax * (target - P[i])           # relax ~ 0.1-0.3
+      Re-project back into the corridor:
+        n_i = dot(P[i] - C_i, normal_i)
+        n_i = clip(n_i, -n_max, +n_max)
+        P[i] = C_i + n_i * normal_i
+    This shortens/straightens the path (classic minimum-curvature relaxation)
+    while staying on track. After convergence recompute:
+      heading_rl_i = atan2(P[i+1].y - P[i-1].y, P[i+1].x - P[i-1].x)
+      kappa_rl_i   = Menger curvature of (P[i-1], P[i], P[i+1])
+                     or finite-difference of heading_rl over arc-length.
+
+3.4 Speed profile  Vmax,i  (physically realizable, not just cornering cap)
+    Cornering cap:  v_corner_i = sqrt(a_lat_max / max(|kappa_rl_i|, eps))
+      a_lat_max ~ 0.85 * mu * g.  gasphalt4 mu ~ 1.0-1.1 -> a_lat_max ~ 8-9 m/s^2.
+    Cap at a sane top speed v_top (e.g. 50-60 m/s) and clamp.
+    Then make it achievable with two passes (so the car can brake in time):
+      backward pass (braking limit a_brake ~ 7 m/s^2):
+        for i descending:  v_i = min(v_i, sqrt(v_{i+1}^2 + 2*a_brake*ds))
+      forward pass (accel limit a_accel ~ 4 m/s^2):
+        for i ascending:   v_i = min(v_i, sqrt(v_{i-1}^2 + 2*a_accel*ds))
+    Wrap both passes for the closed loop. Result = Vmax,i in m/s.
+
+3.5 Save artifact
+    np.savez("gym_torcs/lines/alpine-1.npz",
+             s=s, x=Px, y=Py, psi_center=psi, psi_rl=heading_rl,
+             offset=n, kappa_rl=kappa_rl, vmax=Vmax, length=L, width=W)
+    Provide a loader RacingLine.load(path) with helpers:
+      query(s) -> interp offset, psi_rl, psi_center, kappa_rl, vmax  (s mod L)
+      preview(s, [10,25,50]) -> kappa_rl & vmax at look-ahead distances
+
+
+-------------------------------------------------------------------------------
+4. PHASE 2 — Redefine the ML state space (tracking errors)
+-------------------------------------------------------------------------------
+Edit: gym_torcs/rl_agent.py  -> add flatten_racingline_observation(obs,
+raw_state, line). Keep the old flatten fn for the steering-only baseline.
+
+Per step compute (units consistent — convert speedX km/h -> m/s: /3.6):
+  s        = raw_state["distFromStart"]            # meters, mod L
+  q        = line.query(s)
+  half_w   = W/2
+  # cross-track error to the RACING LINE (meters), not to center:
+  e_y      = trackPos * half_w - q.offset          # SIGN: calibrate (sec 7)
+  # heading error vs the racing line tangent:
+  e_psi    = angle - (q.psi_rl - q.psi_center)     # angle is vs center tangent
+  # speed delta toward the precomputed target:
+  dV       = q.vmax - speedX/3.6                    # m/s
+  # look-ahead preview helps a lot on a twisty track like alpine-1:
+  prev     = line.preview(s, [10,25,50])  -> kappa & (vmax - v) at +10/25/50 m
+
+Proposed state vector (normalize each term to ~[-1,1]):
+  [ speedX/ref_speed,
+    e_y / half_w,
+    e_psi / (pi/4),
+    dV / ref_speed,
+    kappa_rl_now * scale,
+    preview_kappa[+10,+25,+50] * scale,
+    preview_dV[+10,+25,+50] / ref_speed,
+    prevAppliedSteer, prevAppliedAccel, prevAppliedBrake ]
+Optionally keep the 19 track beams (cheap, robust to localization error).
+state_dim grows; the trainer reads it from state.shape[0] automatically, so no
+hardcoding needed — but existing checkpoints become shape-incompatible (the
+loader does partial transfer; expect to retrain).
+
+
+-------------------------------------------------------------------------------
+5. PHASE 3 — Dense reward
+-------------------------------------------------------------------------------
+Edit: gym_torcs/gym_torcs.py -> step(). Replace the center-tracking reward with
+the racing-line reward (keep termination logic and damage/off-track penalties):
+
+  R = a * V * cos(e_psi)        # progress along the line, only if aligned
+    - b * |e_y|                 # stay ON the line
+    - c * (dV)^2                # hit the target speed
+    - damage_penalty            # existing
+    - off_track_penalty         # existing, on track.min()<0
+
+  V in m/s, e_y in m, dV in m/s. Start near a=0.10, b=0.5, c=0.005 and tune.
+The env needs the racing line: pass a line path into TorcsEnv.__init__ and load
+it; compute s/e_y/e_psi/dV inside step() (env already reads raw obs there).
+
+
+-------------------------------------------------------------------------------
+6. PHASE 4 — Action constraints  (and a gearing fix you MUST do first)
+-------------------------------------------------------------------------------
+6.1 Enable throttle so the agent controls speed (required for Vmax tracking):
+    build TorcsEnv(..., throttle=True). action_dim becomes 3
+    (steer, accel, brake). agent_to_torcs already handles this path.
+
+6.2 GEARING FIX (blocker): with gear_change=False the env hardcodes gear=1
+    (gym_torcs.py ~line 230). At racing-line speeds the engine redlines and the
+    car will not accelerate past ~60 km/h. Before raising target speed, EITHER
+    set gear_change=True (agent picks gear) OR enable the speed-based automatic
+    gearing (the commented block right there, or _gear_for_speed()). Recommended:
+    auto-gear by speed, keep gear out of the action space to keep PPO small.
+
+6.3 Speed-scaled steering clip (prevents high-speed spin-outs):
+    max_steer = clip(k0 - k1 * speedX, steer_floor, 1.0)
+    apply when mapping the action (agent_to_torcs / step).
+
+6.4 Steering rate limit (smooth inputs): the fields steer_rate_limit and
+    last_applied_steer already exist but steer_rate_limit=1.0 (no limit). Set
+    ~0.1/step and clamp |steer - last_applied_steer|.
+
+6.5 Throttle/brake: forbid simultaneous accel+brake; optionally low-pass both.
+    (brake is already disabled below brake_enable_speed=35 km/h and a launch
+    assist forces accel below launch_speed_threshold=30 km/h — keep, but be
+    aware they interact with slow hairpins on alpine-1.)
+
+
+-------------------------------------------------------------------------------
+7. PHASE 5 — Train with PPO  (mostly already here)
+-------------------------------------------------------------------------------
+PPO is implemented (rl_agent.py). Changes:
+  * train_torcs_rl.py / eval_torcs_rl.py: throttle=True, pass the racing-line
+    path, swap flatten_low_dim_observation -> flatten_racingline_observation.
+  * action_dim flows from env.action_space (3) automatically.
+  * Bump init_log_std a little for 3-D actions; keep target-KL early stop.
+  * Curriculum that exploits the dense reward: start with a conservative global
+    speed cap (scale vmax down), reward mostly b*|e_y| + a*V; once the car holds
+    the line, raise the cap and the weight on c*(dV)^2.
+Because the reward scale and state dim change, treat existing checkpoints as
+incompatible (warm-start the policy backbone at most; expect a fresh value head).
+
+
+-------------------------------------------------------------------------------
+8. Concrete change list (surgical)
+-------------------------------------------------------------------------------
+NEW  gym_torcs/racing_line.py    XML parse + centerline integ + relaxation +
+                                 speed profile + save; RacingLine loader/query.
+NEW  gym_torcs/recon_lap.py      drive scr/centerline, log s, trackPos, angle,
+                                 speedX to CSV; used to calibrate signs and to
+                                 sanity-check localization (sec 9).
+NEW  gym_torcs/lines/alpine-1.npz   generated artifact (gitignore or commit).
+EDIT gym_torcs/gym_torcs.py      __init__: load line (path arg);
+                                 step(): new reward + compute s/e_y/e_psi/dV;
+                                 enable throttle path; auto-gear fix;
+                                 steer clip + rate limit.
+EDIT gym_torcs/rl_agent.py       add flatten_racingline_observation().
+EDIT gym_torcs/train_torcs_rl.py throttle=True; line path; new flatten fn.
+EDIT gym_torcs/eval_torcs_rl.py  same.
+
+
+-------------------------------------------------------------------------------
+9. Calibration & gotchas (read before debugging for hours)
+-------------------------------------------------------------------------------
+G1  tTrackSeg is NOT reachable from Python — geometry comes from the XML (sec 0).
+G2  Units: raw speedX is km/h; vmax is m/s. Convert (/3.6). The OBS namedtuple
+    also divides speedX by default_speed=50 — don't double-normalize.
+G3  GEAR hardcoded to 1 when gear_change=False — fix before raising speed (6.2).
+G4  trackPos sign vs racing-line offset sign MUST agree. Run recon_lap, nudge
+    the car left/right, observe trackPos sign, and match the LEFT-normal
+    convention used in sec 3.3. Wrong sign => the car chases the mirror line.
+G5  distFromStart origin may not coincide with XML segment[0] start, and it
+    wraps to 0 each lap. Align an s-offset via recon (find s where the car sits
+    at a known segment) and always index with (s mod L).
+G6  Closed-loop: relaxation and both speed passes use periodic (wrap) indexing.
+G7  Variable width: some segments override side width (e.g. "end width"). Use a
+    conservative global n_max, or store per-node width and clamp per node.
+G8  alpine-1 is the configured track (practice.xml). Different track in the GUI
+    => regenerate the npz. Keep one npz per track under gym_torcs/lines/.
+G9  throttle=False auto-throttle ignores the agent's accel and pins 50 km/h —
+    you MUST set throttle=True for the agent to control speed.
+G10 Reward/state changes invalidate old checkpoints (shape + value scale).
+G11 Windows: TORCS is started manually (auto_start defaults off on nt). Launch
+    TORCS, open the SCR practice race on port 3001 BEFORE running train/eval.
+
+
+-------------------------------------------------------------------------------
+10. Validation plan
+-------------------------------------------------------------------------------
+V1  Loop closure: integrated centerline returns to start (sec 3.2). Hard gate.
+V2  Plot centerline vs relaxed line (matplotlib) — line should cut apexes and
+    stay inside the corridor.
+V3  Speed profile plot — vmax dips at high-|kappa| nodes; passes respect accel/
+    brake limits (no instantaneous jumps beyond sqrt(2*a*ds)).
+V4  recon_lap: s increases monotonically then wraps to 0; trackPos sign matches
+    the chosen normal; e_y near 0 when the car is on the centerline at a
+    zero-offset node.
+V5  Short PPO run: watch mean |e_y| and |dV| shrink update over update; episode
+    length grows; off_track terminations drop. These are the convergence signal
+    the dense reward is designed to give.
+
+
+-------------------------------------------------------------------------------
+11. Suggested order of work
+-------------------------------------------------------------------------------
+1) racing_line.py: parser + centerline + loop-closure test (V1).
+2) relaxation + speed profile + plots (V2, V3).
+3) recon_lap.py: localization + sign calibration (G4, G5, V4).
+4) gear fix + enable throttle (6.2, 6.1).
+5) state builder (Phase 2) + reward (Phase 3) wired into env.
+6) short training run; confirm e_y / dV trend down (V5).
+7) action constraints (6.3-6.5), look-ahead features, curriculum, tune a/b/c.
+===============================================================================
