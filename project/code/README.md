@@ -4,7 +4,7 @@ Two agents from the [AI-Slop Racers](../README.md) project are included here:
 
 | Folder | What it is | Result |
 |--------|-----------|--------|
-| [`stable/`](stable/) ⭐ | Separate actor/critic networks + the time-to-edge **danger reward**. | The best agent — a clean **1:31.53** lap, top speed ≈ 245 km/h. |
+| [`stable/`](stable/) | Separate actor/critic networks + the time-to-edge **danger reward**. | The best agent — a clean **1:31.53** lap, top speed ≈ 245 km/h. |
 | [`a.bhuiyan/`](a.bhuiyan/) | Offline **racing line** + deterministic baseline, with PPO learning only a bounded **residual**. | A different control architecture; reduced (not eliminated) S-curve errors. |
 
 Both share the same layout — the team's reinforcement-learning code lives in `gym_torcs/`:

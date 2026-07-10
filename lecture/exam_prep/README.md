@@ -32,26 +32,26 @@ so you can close the tab and pick up where you left off.
 
 ## Four views
 
-### 📝 Quiz — answer with instant feedback
+### Quiz — answer with instant feedback
 Pick an option and the app immediately marks it, highlights the correct answer, and shows the
 explanation. A per-question and total **study timer** (pause with `P`) keeps status visible
 without pressure, and progress is saved per set so you resume where you stopped.
 
 ![Answering a question reveals the correct choice and the explanation](screenshots/quiz-explained.png)
 
-### 📖 Learn — flashcards
-Flip through any topic (or ★ all topics) as flashcards. Leave **Show answers** on to read
+### Learn — flashcards
+Flip through any topic (or all topics at once) as flashcards. Leave **Show answers** on to read
 straight through, or turn it off for flip-card mode — tap a card (or press `Enter`) to reveal.
 
 ![Flashcard/Learn view](screenshots/learn.png)
 
-### 🔍 Search — across everything
+### Search — across everything
 Type two or more characters to filter **every question, answer, and explanation** at once,
 with the matches highlighted. Handy for finding "that one question about the hypervisor".
 
 ![Full-text search across the whole bank](screenshots/search.png)
 
-### 🩹 Mistakes — fix what you got wrong
+### Mistakes — fix what you got wrong
 Every wrong answer in your saved progress is collected here, each card showing your choice
 against the correct one, with a **Review in quiz →** jump-back and a **Retake these** drill.
 

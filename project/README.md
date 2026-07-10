@@ -163,7 +163,7 @@ off-track excursions in the S-curve — still the hardest section.
 | `master` | Conservative baseline — speed-capped, centre-hugging, auto-gear. |
 | `160speed` | Reached ≈ 140 km/h but completed only three-quarters of a lap. |
 | `160speed+stablesteer` | Held ≈ 140 km/h with smoother steering; still struggled on the S-turn. |
-| **`stable`** ⭐ | **Full, clean lap in 1:31.53, top speed ≈ 245 km/h — the project's best result.** |
+| **`stable`** | **Full, clean lap in 1:31.53, top speed ≈ 245 km/h — the project's best result.** |
 | `headless` | Stable reward + gear/rpm power-band reward; trains without a GUI. |
 | `parallel` | ≈ 9× rollout throughput via asynchronous multi-instance training. |
 | `gear_strategy_max_jerk` | Agent-controlled gear with a jerk-based shift reward (WIP). |
@@ -175,9 +175,9 @@ off-track excursions in the S-curve — still the hardest section.
 
 ```text
 project/
-├── README.md                ← you are here
+├── README.md                (you are here)
 ├── code/                    the two included agents (see code/README.md)
-│   ├── stable/              ⭐ best result — the danger-reward agent (1:31.53)
+│   ├── stable/              best result — the danger-reward agent (1:31.53)
 │   └── a.bhuiyan/           the racing-line + residual-PPO architecture
 ├── docs/
 │   ├── AI_Racer_Documentation.pdf        full 25-page project report

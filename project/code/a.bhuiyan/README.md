@@ -33,7 +33,7 @@ python eval_torcs_rl.py --port 3001 --model-path checkpoints/corkscrew_ppo_lates
 `--racing-line none` = steering-only baseline. `--no-assist` = pure PPO.
 New track: `python racing_line.py --track-xml <path> --out lines/<name>.npz`.
 
-> ⚠️ Small `--max-steps` (default 300) resets the episode every 300 steps →
+> **Note:** Small `--max-steps` (default 300) resets the episode every 300 steps →
 > reconnect each episode → TORCS keeps restarting AND the car never finishes a
 > fast lap. Use a big value.
 

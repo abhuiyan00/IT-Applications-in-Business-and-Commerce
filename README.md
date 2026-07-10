@@ -14,12 +14,12 @@ syllabus into an interactive quiz.
 
 | Part | What it is | Built with |
 |------|-----------|-----------|
-| 🏎️ [**project**](project/) | **AI Racer** — a PPO agent that learns to drive in TORCS for the **IBM AI Racing League**. Two included agents, full team documentation, and per-branch reports. | Python · PyTorch · TORCS (SCR UDP) |
-| 📚 [**lecture/exam_prep**](lecture/exam_prep/) | **IT Apps Knowledge Test** — a client-side quiz app: 497 questions, flashcards, search, mistakes tracker. No build, opens in a browser. | Vanilla HTML · CSS · JS |
+| [**project**](project/) | **AI Racer** — a PPO agent that learns to drive in TORCS for the **IBM AI Racing League**. Two included agents, full team documentation, and per-branch reports. | Python · PyTorch · TORCS (SCR UDP) |
+| [**lecture/exam_prep**](lecture/exam_prep/) | **IT Apps Knowledge Test** — a client-side quiz app: 497 questions, flashcards, search, mistakes tracker. No build, opens in a browser. | Vanilla HTML · CSS · JS |
 
 ---
 
-## 🏎️ The project — AI Racer (IBM AI Racing League)
+## The project — AI Racer (IBM AI Racing League)
 
 A team of students — **“AI-Slop Racers”** — trained an autonomous agent with **Proximal Policy
 Optimisation** to race a car in **TORCS** over the SCR UDP protocol, built with the help of IBM.
@@ -37,11 +37,11 @@ did what, how the danger-based braking reward works, the S-curve, and the result
 agents** (`stable`, the best; and `a.bhuiyan`, the racing-line architecture), the **25-page
 documentation**, the **per-branch technical reports** for every experiment, and the presentations.
 
-→ **[project/README.md](project/README.md)**
+Full write-up: **[project/README.md](project/README.md)**.
 
 ---
 
-## 📚 The lecture app — IT Apps Knowledge Test
+## The lecture app — IT Apps Knowledge Test
 
 A single-page study app for the course lectures: **497 questions across 28 topic sets**
 (enterprise apps & SOA, REST/microservices, cloud & virtualization, containers, Kubernetes,
@@ -51,7 +51,7 @@ just open `index.html`.
 
 ![The quiz app — answer a question and it explains the answer](lecture/exam_prep/screenshots/quiz-explained.png)
 
-→ **[lecture/exam_prep/README.md](lecture/exam_prep/README.md)**
+Full write-up: **[lecture/exam_prep/README.md](lecture/exam_prep/README.md)**.
 
 ---
 
@@ -59,15 +59,15 @@ just open `index.html`.
 
 ```text
 .
-├── project/                 🏎️ AI Racer — the IBM AI Racing League project
-│   ├── code/                    the two included agents (stable ⭐, a.bhuiyan)
-│   ├── docs/                    25-page documentation, per-branch reports, figures
-│   ├── competition/             IBM AI Racing League framework + posters
-│   └── presentations/           kick-off and prototype decks
+├── project/                AI Racer — the IBM AI Racing League project
+│   ├── code/               the two included agents (stable — best result, and a.bhuiyan)
+│   ├── docs/               25-page documentation, per-branch reports, figures
+│   ├── competition/        IBM AI Racing League framework + posters
+│   └── presentations/      kick-off and prototype decks
 ├── lecture/
-│   └── exam_prep/           📚 the IT Apps Knowledge Test quiz app
-├── LICENSE                  MIT
-└── README.md                you are here
+│   └── exam_prep/          the IT Apps Knowledge Test quiz app
+├── LICENSE                 MIT
+└── README.md               you are here
 ```
 
 ---
