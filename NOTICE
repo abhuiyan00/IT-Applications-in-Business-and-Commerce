@@ -1,0 +1,28 @@
+IT Applications in Business and Commerce — third-party notices
+==============================================================
+
+The team's own code, documentation, and figures in this repository are licensed
+under the MIT License (see LICENSE). The project also builds on the following
+third-party components, which retain their own licences:
+
+* TORCS — The Open Racing Car Simulator (Wymann, Espié, Guionneau, Dimitrakakis,
+  Coulom, Sumner). The simulator itself is a separate open-source project and is
+  NOT redistributed in this repository; it is a runtime prerequisite. See
+  project/code/README.md for how to obtain it.
+
+* Simulated Car Racing (SCR) protocol — Loiacono, Cardamone, Lanzi. The UDP
+  sensor/actuator protocol used to communicate with TORCS.
+
+* gym_torcs — the OpenAI-Gym-style TORCS environment wrapper this project's
+  environment code derives from.
+      MIT License, Copyright (c) 2016 Naoto Yoshida
+      The upstream licence is preserved verbatim at:
+        project/code/stable/gym_torcs/LICENSE
+        project/code/a.bhuiyan/gym_torcs/LICENSE
+
+* Methods — Proximal Policy Optimization (Schulman et al., 2017) and Generalized
+  Advantage Estimation (Schulman et al., 2016), implemented here with PyTorch and
+  NumPy. Full references are in project/docs/AI_Racer_Documentation.pdf.
+
+Built for the IBM AI Racing League with the assistance of IBM (IBM Granite,
+IBM SkillsBuild). "IBM" and related marks belong to their respective owner.
