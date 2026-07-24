@@ -32,6 +32,23 @@ put a clean lap together.
 
 ![Best lap time across development — from off-track starts to a clean 1:31.53](project/docs/images/lap-time-progress.png)
 
+<table>
+  <tr>
+    <td width="33%" valign="top">
+      <img src="project/docs/images/torcs-track-sensors.png" alt="A TORCS car with its track rangefinder sensors labelled by angle">
+      <br><sub><b>Track sensors.</b> The rangefinder inputs (angles labelled) the PPO agent reads every step.</sub>
+    </td>
+    <td width="33%" valign="top">
+      <img src="project/docs/images/s-turn-strategy.png" alt="The racing line through the Corkscrew S-curve">
+      <br><sub><b>The Corkscrew S-curve.</b> The tight sequence that blocked every early agent — and the line the stable agent takes through it.</sub>
+    </td>
+    <td width="33%" valign="top">
+      <img src="project/docs/images/danger-braking-model.png" alt="The danger-based braking reward model">
+      <br><sub><b>Danger-based braking.</b> The reward that learns when to lift and brake before a corner.</sub>
+    </td>
+  </tr>
+</table>
+
 The [project README](project/) tells the whole story — the competition, the full team and who
 did what, how the danger-based braking reward works, the S-curve, and the results. It ships **two
 agents** (`stable`, the best; and `a.bhuiyan`, the racing-line architecture), the **25-page
@@ -50,6 +67,23 @@ search, and a mistakes tracker. It's plain HTML/CSS/JavaScript — no build, no 
 just open `index.html`.
 
 ![The quiz app — answer a question and it explains the answer](lecture/exam_prep/screenshots/quiz-explained.png)
+
+<table>
+  <tr>
+    <td width="33%" valign="top">
+      <img src="lecture/exam_prep/screenshots/home-quiz.png" alt="The quiz app home / topic picker">
+      <br><sub><b>Home.</b> Pick from 497 questions across 28 topic sets.</sub>
+    </td>
+    <td width="33%" valign="top">
+      <img src="lecture/exam_prep/screenshots/learn.png" alt="Learn mode with explanations">
+      <br><sub><b>Learn mode.</b> Read each answer with its explanation before testing yourself.</sub>
+    </td>
+    <td width="33%" valign="top">
+      <img src="lecture/exam_prep/screenshots/mistakes.png" alt="The mistakes tracker">
+      <br><sub><b>Mistakes tracker.</b> Everything you got wrong, collected to drill again.</sub>
+    </td>
+  </tr>
+</table>
 
 Full write-up: **[lecture/exam_prep/README.md](lecture/exam_prep/README.md)**.
 
