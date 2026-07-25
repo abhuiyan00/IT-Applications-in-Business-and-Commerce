@@ -4,8 +4,8 @@
 ===============================================================================
 
 Audience: whoever works on the "pre-computed racing line + PPO physics handler"
-architecture in this repo. Read CLAUDE.md first for the project map; this file
-is the design rationale + math behind the implementation.
+architecture in this repo. Read the project README first for the project map;
+this file is the design rationale + math behind the implementation.
 
 -------------------------------------------------------------------------------
  STATUS: IMPLEMENTED (focus track = corkscrew)
